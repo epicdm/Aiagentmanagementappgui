@@ -8,8 +8,11 @@ import { Switch } from "../ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { User, Building, Bell, Key, CreditCard, AlertTriangle } from "lucide-react";
+import { User, Building, Bell, Key, CreditCard, AlertTriangle, Users, Plus, Trash2, Shield, Mail } from "lucide-react";
 import { toast } from "sonner@2.0.3";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Badge } from "../ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,11 +30,41 @@ interface SettingsPageProps {
   user: any;
 }
 
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'member' | 'viewer';
+  status: 'active' | 'pending';
+  joinedDate: string;
+}
+
 export function SettingsPage({ accessToken, user }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
+  const [isInviteMemberOpen, setIsInviteMemberOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
+    { id: '1', name: 'John Doe', email: 'john@example.com', role: 'admin', status: 'active', joinedDate: '2025-01-15' },
+    { id: '2', name: 'Jane Smith', email: 'jane@example.com', role: 'member', status: 'active', joinedDate: '2025-02-20' },
+    { id: '3', name: 'Bob Wilson', email: 'bob@example.com', role: 'viewer', status: 'pending', joinedDate: '2025-10-30' }
+  ]);
 
   const handleSave = () => {
     toast.success("Settings saved successfully");
+  };
+
+  const handleInviteMember = () => {
+    setIsInviteMemberOpen(false);
+    toast.success("Invitation sent successfully");
+  };
+
+  const handleRemoveMember = (id: string) => {
+    setTeamMembers(teamMembers.filter(m => m.id !== id));
+    toast.success("Team member removed");
+  };
+
+  const handleChangeRole = (id: string, newRole: TeamMember['role']) => {
+    setTeamMembers(teamMembers.map(m => m.id === id ? { ...m, role: newRole } : m));
+    toast.success("Role updated");
   };
 
   return (
@@ -52,6 +85,10 @@ export function SettingsPage({ accessToken, user }: SettingsPageProps) {
             <TabsTrigger value="account">
               <Building className="h-4 w-4 mr-2" />
               Account
+            </TabsTrigger>
+            <TabsTrigger value="team">
+              <Users className="h-4 w-4 mr-2" />
+              Team
             </TabsTrigger>
             <TabsTrigger value="notifications">
               <Bell className="h-4 w-4 mr-2" />
@@ -230,6 +267,119 @@ export function SettingsPage({ accessToken, user }: SettingsPageProps) {
             </Card>
           </TabsContent>
 
+          {/* Team Tab */}
+          <TabsContent value="team" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Team Members</CardTitle>
+                    <CardDescription>Manage your team and permissions</CardDescription>
+                  </div>
+                  <Button onClick={() => setIsInviteMemberOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Invite Member
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamMembers.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell className="text-slate-600 dark:text-slate-400">{member.email}</TableCell>
+                        <TableCell>
+                          <Select 
+                            value={member.role}
+                            onValueChange={(value) => handleChangeRole(member.id, value as TeamMember['role'])}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={member.status === 'active' ? 'default' : 'outline'}
+                            className={member.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
+                          >
+                            {member.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-slate-500">
+                          {new Date(member.joinedDate).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Role Permissions</CardTitle>
+                <CardDescription>Understanding team roles</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex gap-3 p-3 border dark:border-slate-700 rounded-lg">
+                    <Shield className="h-5 w-5 text-purple-600 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-medium">Admin</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Full access to all features, including billing and team management
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 p-3 border dark:border-slate-700 rounded-lg">
+                    <User className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-medium">Member</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Can create and manage agents, campaigns, and view analytics
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 p-3 border dark:border-slate-700 rounded-lg">
+                    <Bell className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-medium">Viewer</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Read-only access to view agents, campaigns, and analytics
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Notifications Tab */}
           <TabsContent value="notifications" className="space-y-6">
             <Card>
@@ -362,6 +512,58 @@ export function SettingsPage({ accessToken, user }: SettingsPageProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Invite Member Dialog */}
+      <Dialog open={isInviteMemberOpen} onOpenChange={setIsInviteMemberOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite Team Member</DialogTitle>
+            <DialogDescription>
+              Send an invitation to join your team
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email Address</Label>
+              <Input id="invite-email" type="email" placeholder="teammate@example.com" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select defaultValue="member">
+                <SelectTrigger id="invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
+              <div className="flex gap-2">
+                <Mail className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div>
+                  <div className="font-medium text-blue-900 dark:text-blue-100">Email Invitation</div>
+                  <div className="text-blue-700 dark:text-blue-300">
+                    An invitation link will be sent to the email address
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsInviteMemberOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleInviteMember}>
+              Send Invitation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

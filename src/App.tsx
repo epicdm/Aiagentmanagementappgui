@@ -19,11 +19,17 @@ import { CampaignsPage } from "./components/pages/CampaignsPage";
 import { CampaignDetailPage } from "./components/pages/CampaignDetailPage";
 import { LiveCallsPage } from "./components/pages/LiveCallsPage";
 import { SettingsPage } from "./components/pages/SettingsPage";
+import { PersonasPage } from "./components/pages/PersonasPage";
 import { BillingPage } from "./components/pages/BillingPage";
 import { ApiKeysPage } from "./components/pages/ApiKeysPage";
 import { WebhooksPage } from "./components/pages/WebhooksPage";
 import { MarketplacePage } from "./components/pages/MarketplacePage";
 import { WhiteLabelPage } from "./components/pages/WhiteLabelPage";
+import { FunnelsPage } from "./components/pages/FunnelsPage";
+import { FunnelDetailPage } from "./components/pages/FunnelDetailPage";
+import { SocialMediaPage } from "./components/pages/SocialMediaPage";
+import { SocialMediaCalendarPage } from "./components/pages/SocialMediaCalendarPage";
+import { SocialPostDetailPage } from "./components/pages/SocialPostDetailPage";
 import { AdminDashboardPage } from "./components/pages/admin/AdminDashboardPage";
 import { AdminUsersPage } from "./components/pages/admin/AdminUsersPage";
 import { AdminBillingPage } from "./components/pages/admin/AdminBillingPage";
@@ -38,14 +44,17 @@ import { CreateAgentDialog } from "./components/CreateAgentDialog";
 import { Agent } from "./utils/api";
 
 type AppState = "landing" | "auth" | "app" | "admin";
-type PageState = "dashboard" | "agents" | "phone-numbers" | "calls" | "live-calls" | "analytics" | "testing" | "leads" | "campaigns" | "settings" | "billing" | "api-keys" | "webhooks" | "marketplace" | "white-label";
+type PageState = "dashboard" | "agents" | "phone-numbers" | "calls" | "live-calls" | "analytics" | "testing" | "leads" | "campaigns" | "settings" | "personas" | "billing" | "api-keys" | "webhooks" | "marketplace" | "white-label" | "funnels" | "social-media";
 type AdminPageState = "admin-dashboard" | "admin-users" | "admin-billing" | "admin-analytics" | "admin-audit" | "admin-support" | "admin-content" | "admin-system";
 type CallDetailState = { page: "call-detail"; callId: string };
 type CampaignDetailState = { page: "campaign-detail"; campaignId: string };
+type FunnelDetailState = { page: "funnel-detail"; funnelId: string };
+type SocialCalendarState = { page: "social-calendar" };
+type SocialPostDetailState = { page: "social-post-detail"; postId: string };
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>("landing");
-  const [currentPage, setCurrentPage] = useState<PageState | AdminPageState | CallDetailState | CampaignDetailState>({"page": "dashboard"} as any);
+  const [currentPage, setCurrentPage] = useState<PageState | AdminPageState | CallDetailState | CampaignDetailState | FunnelDetailState | SocialCalendarState | SocialPostDetailState>({"page": "dashboard"} as any);
   const [user, setUser] = useState<any>(null);
   const [accessToken, setAccessToken] = useState<string>("");
   const [isCreateAgentOpen, setIsCreateAgentOpen] = useState(false);
@@ -56,6 +65,9 @@ export default function App() {
     if (typeof currentPage === 'object' && 'page' in currentPage) {
       if (currentPage.page === 'call-detail') return 'calls';
       if (currentPage.page === 'campaign-detail') return 'campaigns';
+      if (currentPage.page === 'funnel-detail') return 'funnels';
+      if (currentPage.page === 'social-calendar') return 'social-media';
+      if (currentPage.page === 'social-post-detail') return 'social-media';
       return currentPage.page;
     }
     return 'dashboard';
@@ -141,6 +153,20 @@ export default function App() {
   const handleViewCampaignDetail = (campaignId: string) => {
     setCurrentPage({ page: "campaign-detail", campaignId });
   };
+
+  const handleViewFunnelDetail = (funnelId: string) => {
+    setCurrentPage({ page: "funnel-detail", funnelId });
+  };
+
+  const handleViewSocialCalendar = () => {
+    setCurrentPage({ page: "social-calendar" });
+  };
+
+  const handleViewSocialPost = (postId: string) => {
+    setCurrentPage({ page: "social-post-detail", postId });
+  };
+
+  const [showCreateSocialPost, setShowCreateSocialPost] = useState(false);
 
   const handleCreateAgent = () => {
     setIsCreateAgentOpen(true);
@@ -292,6 +318,10 @@ export default function App() {
           <SettingsPage accessToken={accessToken} user={user} />
         )}
 
+        {currentPage === "personas" && (
+          <PersonasPage accessToken={accessToken} />
+        )}
+
         {currentPage === "billing" && (
           <BillingPage accessToken={accessToken} />
         )}
@@ -310,6 +340,48 @@ export default function App() {
 
         {currentPage === "white-label" && (
           <WhiteLabelPage accessToken={accessToken} />
+        )}
+
+        {currentPage === "funnels" && (
+          <FunnelsPage 
+            accessToken={accessToken}
+            onNavigate={handleNavigate}
+            onViewFunnel={handleViewFunnelDetail}
+          />
+        )}
+
+        {typeof currentPage === 'object' && currentPage.page === "funnel-detail" && (
+          <FunnelDetailPage
+            funnelId={currentPage.funnelId}
+            accessToken={accessToken}
+            onBack={() => handleNavigate("funnels")}
+          />
+        )}
+
+        {currentPage === "social-media" && (
+          <SocialMediaPage 
+            accessToken={accessToken}
+            onNavigate={handleNavigate}
+            onViewCalendar={handleViewSocialCalendar}
+            onViewPost={handleViewSocialPost}
+          />
+        )}
+
+        {typeof currentPage === 'object' && currentPage.page === "social-calendar" && (
+          <SocialMediaCalendarPage
+            accessToken={accessToken}
+            onBack={() => handleNavigate("social-media")}
+            onCreatePost={() => setShowCreateSocialPost(true)}
+            onViewPost={handleViewSocialPost}
+          />
+        )}
+
+        {typeof currentPage === 'object' && currentPage.page === "social-post-detail" && (
+          <SocialPostDetailPage
+            postId={currentPage.postId}
+            accessToken={accessToken}
+            onBack={() => handleNavigate("social-media")}
+          />
         )}
       </AppLayout>
 

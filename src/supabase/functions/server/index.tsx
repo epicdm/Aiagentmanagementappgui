@@ -3,7 +3,7 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.tsx";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { generateMockCallLogs, generateDashboardStats, generateMockPhoneNumbers, generateSampleAgents } from "./mock-data.tsx";
+import { generateMockCallLogs, generateDashboardStats, generateMockPhoneNumbers, generateSampleAgents, generateSystemPersonas } from "./mock-data.tsx";
 
 const app = new Hono();
 
@@ -137,8 +137,8 @@ app.post("/make-server-9d2dee99/agents", async (c) => {
     const agentData = await c.req.json();
     
     // Validate required fields
-    if (!agentData.name || !agentData.type) {
-      return c.json({ error: "Name and type are required" }, 400);
+    if (!agentData.name || !agentData.type || !agentData.personaId) {
+      return c.json({ error: "Name, type, and personaId are required" }, 400);
     }
 
     // Create agent with unique ID
@@ -147,12 +147,17 @@ app.post("/make-server-9d2dee99/agents", async (c) => {
       id: agentId,
       userId: user.id,
       name: agentData.name,
-      type: agentData.type,
+      type: agentData.type, // inbound, outbound, hybrid
+      agentType: agentData.agentType || 'voice',
+      personaId: agentData.personaId,
       model: agentData.model || 'gpt-4',
       voice: agentData.voice || 'alloy',
       language: agentData.language || 'en-US',
       systemPrompt: agentData.systemPrompt || '',
       status: agentData.status || 'active',
+      channels: agentData.channels || ['voice'],
+      phoneNumberId: agentData.phoneNumberId || null,
+      temperature: agentData.temperature || 0.7,
       createdAt: new Date().toISOString(),
     };
 
@@ -452,6 +457,297 @@ app.post("/make-server-9d2dee99/phone-numbers/:id/assign", async (c) => {
   } catch (error) {
     console.log(`Error assigning phone number: ${error}`);
     return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get all personas for a user
+app.get("/make-server-9d2dee99/personas", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    // Get user personas
+    const personaValues = await kv.getByPrefix(`persona:${user.id}:`);
+    const personas = personaValues.filter(p => p != null);
+    
+    // Get or initialize system templates (shared across all users)
+    let systemTemplates = await kv.get('personas:system-templates');
+    if (!systemTemplates) {
+      systemTemplates = generateSystemPersonas();
+      await kv.set('personas:system-templates', systemTemplates);
+    }
+    
+    return c.json({ personas: [...systemTemplates, ...personas] });
+  } catch (error) {
+    console.log(`Error fetching personas: ${error}`);
+    return c.json({ error: "Internal server error while fetching personas" }, 500);
+  }
+});
+
+// Create new persona
+app.post("/make-server-9d2dee99/personas", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const personaData = await c.req.json();
+    
+    if (!personaData.name || !personaData.type) {
+      return c.json({ error: "Name and type are required" }, 400);
+    }
+
+    const personaId = crypto.randomUUID();
+    const persona = {
+      id: personaId,
+      userId: user.id,
+      name: personaData.name,
+      type: personaData.type,
+      description: personaData.description || '',
+      instructions: personaData.instructions || '',
+      tone: personaData.tone || 'professional',
+      style: personaData.style || 'conversational',
+      personalityTraits: personaData.personalityTraits || [],
+      channels: personaData.channels || ['voice'],
+      tools: personaData.tools || [],
+      brandProfileId: personaData.brandProfileId || null,
+      isTemplate: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    await kv.set(`persona:${user.id}:${personaId}`, persona);
+
+    return c.json({ persona });
+  } catch (error) {
+    console.log(`Error creating persona: ${error}`);
+    return c.json({ error: "Internal server error while creating persona" }, 500);
+  }
+});
+
+// Update persona
+app.put("/make-server-9d2dee99/personas/:id", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const personaId = c.req.param('id');
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const existingPersona = await kv.get(`persona:${user.id}:${personaId}`);
+    
+    if (!existingPersona) {
+      return c.json({ error: "Persona not found" }, 404);
+    }
+
+    if (existingPersona.isTemplate) {
+      return c.json({ error: "Cannot edit system templates" }, 403);
+    }
+
+    const updates = await c.req.json();
+    
+    const updatedPersona = {
+      ...existingPersona,
+      ...updates,
+      id: personaId,
+      userId: user.id,
+      isTemplate: false,
+    };
+
+    await kv.set(`persona:${user.id}:${personaId}`, updatedPersona);
+
+    return c.json({ persona: updatedPersona });
+  } catch (error) {
+    console.log(`Error updating persona: ${error}`);
+    return c.json({ error: "Internal server error while updating persona" }, 500);
+  }
+});
+
+// Delete persona
+app.delete("/make-server-9d2dee99/personas/:id", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const personaId = c.req.param('id');
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const persona = await kv.get(`persona:${user.id}:${personaId}`);
+    
+    if (!persona) {
+      return c.json({ error: "Persona not found" }, 404);
+    }
+
+    if (persona.isTemplate) {
+      return c.json({ error: "Cannot delete system templates" }, 403);
+    }
+
+    // Check if persona is in use
+    const agents = await kv.getByPrefix(`agent:${user.id}:`);
+    const inUse = agents.some((agent: any) => agent?.personaId === personaId);
+    
+    if (inUse) {
+      return c.json({ error: "Cannot delete persona: in use by agents" }, 400);
+    }
+
+    await kv.del(`persona:${user.id}:${personaId}`);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.log(`Error deleting persona: ${error}`);
+    return c.json({ error: "Internal server error while deleting persona" }, 500);
+  }
+});
+
+// Get brand profile
+app.get("/make-server-9d2dee99/brand-profile", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const brandProfile = await kv.get(`brand-profile:${user.id}`);
+    
+    return c.json({ brandProfile: brandProfile || null });
+  } catch (error) {
+    console.log(`Error fetching brand profile: ${error}`);
+    return c.json({ error: "Internal server error while fetching brand profile" }, 500);
+  }
+});
+
+// Update brand profile
+app.put("/make-server-9d2dee99/brand-profile", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const brandData = await c.req.json();
+    
+    const brandProfile = {
+      ...brandData,
+      userId: user.id,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`brand-profile:${user.id}`, brandProfile);
+
+    return c.json({ brandProfile });
+  } catch (error) {
+    console.log(`Error updating brand profile: ${error}`);
+    return c.json({ error: "Internal server error while updating brand profile" }, 500);
+  }
+});
+
+// Extract brand voice from social media (AI extraction)
+app.post("/make-server-9d2dee99/brand-profile/extract", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const { urls } = await c.req.json();
+    
+    if (!urls || urls.length === 0) {
+      return c.json({ error: "At least one URL is required" }, 400);
+    }
+
+    // TODO: Implement actual AI extraction using OpenAI/Anthropic
+    // For now, return mock extracted data
+    const extractedData = {
+      businessDescription: "A modern technology company focused on innovation and customer success.",
+      brandVoice: "Professional, innovative, and customer-focused with a friendly tone.",
+      toneGuidelines: "Be helpful, clear, and enthusiastic. Avoid jargon unless necessary.",
+      targetAudience: "Tech-savvy professionals and businesses looking for AI solutions.",
+      keyProducts: ["AI Voice Agents", "Chat Automation", "Multi-channel Support"],
+      keyServices: ["Voice AI Integration", "Custom Agent Development", "24/7 Support"],
+      companyValues: ["Innovation", "Customer Success", "Transparency", "Excellence"],
+      brandPersonality: ["Professional", "Innovative", "Helpful", "Reliable"],
+      uniqueSellingPoints: ["Multi-channel AI support", "Easy integration", "Real-time analytics"],
+      commonQuestions: [
+        "How do I get started?",
+        "What channels are supported?",
+        "Can I customize the AI agent?",
+      ],
+      dos: [
+        "Always be helpful and professional",
+        "Provide clear, actionable information",
+        "Use customer's name when appropriate",
+      ],
+      donts: [
+        "Never make promises we can't keep",
+        "Avoid technical jargon with non-technical users",
+        "Don't share confidential information",
+      ],
+      extractedAt: new Date().toISOString(),
+      sourceUrls: urls,
+    };
+
+    return c.json({ extractedData });
+  } catch (error) {
+    console.log(`Error extracting brand voice: ${error}`);
+    return c.json({ error: "Internal server error while extracting brand voice" }, 500);
   }
 });
 

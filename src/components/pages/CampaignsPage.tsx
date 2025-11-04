@@ -8,8 +8,11 @@ import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Plus, Play, Pause, Edit, BarChart3, Loader2 } from "lucide-react";
+import { Plus, Play, Pause, Edit, BarChart3, Loader2, Target, Calendar, TrendingUp, Users, PhoneCall, CheckCircle, Trash2, Copy, AlertCircle } from "lucide-react";
 import { toast } from "sonner@2.0.3";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { Checkbox } from "../ui/checkbox";
+import { ConfirmDialog } from "../ConfirmDialog";
 
 interface Campaign {
   id: string;
@@ -35,6 +38,16 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadCampaigns();
@@ -114,6 +127,63 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
     setCurrentStep(1);
   };
 
+  const handleDuplicateCampaign = (campaign: Campaign) => {
+    const newCampaign = {
+      ...campaign,
+      id: `${campaign.id}_copy`,
+      name: `${campaign.name} (Copy)`,
+      status: 'draft' as const,
+      progress: 0,
+      called: 0,
+      successful: 0,
+      remaining: campaign.totalLeads
+    };
+    setCampaigns([...campaigns, newCampaign]);
+    toast.success("Campaign duplicated successfully");
+  };
+
+  const handleDeleteCampaign = (campaignId: string, campaignName: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Campaign",
+      message: `Are you sure you want to delete "${campaignName}"? This action cannot be undone.`,
+      onConfirm: () => {
+        setCampaigns(campaigns.filter(c => c.id !== campaignId));
+        toast.success("Campaign deleted");
+        setConfirmDialog({ isOpen: false, title: "", message: "", onConfirm: () => {} });
+      }
+    });
+  };
+
+  const handleEditCampaign = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setEditDialogOpen(true);
+    toast.info(`Editing campaign: ${campaign.name}`);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      toast.success(`File "${file.name}" uploaded successfully!`);
+    }
+  };
+
+  // Calculate stats
+  const filteredCampaigns = statusFilter === "all" 
+    ? campaigns 
+    : campaigns.filter(c => c.status === statusFilter);
+
+  const stats = {
+    total: campaigns.length,
+    active: campaigns.filter(c => c.status === 'active').length,
+    totalCalled: campaigns.reduce((sum, c) => sum + c.called, 0),
+    totalSuccessful: campaigns.reduce((sum, c) => sum + c.successful, 0),
+    successRate: campaigns.length > 0 
+      ? Math.round((campaigns.reduce((sum, c) => sum + c.successful, 0) / campaigns.reduce((sum, c) => sum + c.called, 0)) * 100) || 0
+      : 0
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full py-20">
@@ -128,7 +198,7 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl mb-2">Campaigns</h1>
-          <p className="text-slate-600">Launch and manage automated calling campaigns</p>
+          <p className="text-slate-600 dark:text-slate-400">Launch and manage automated calling campaigns</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
           setIsCreateDialogOpen(open);
@@ -274,6 +344,132 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
         </Dialog>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Total Campaigns</CardTitle>
+              <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{stats.total}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Created
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Active</CardTitle>
+              <Play className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{stats.active}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Running now
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Total Calls</CardTitle>
+              <PhoneCall className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{stats.totalCalled.toLocaleString()}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              All campaigns
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Successful</CardTitle>
+              <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{stats.totalSuccessful.toLocaleString()}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Connections
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Success Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{stats.successRate}%</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Average
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      {campaigns.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-slate-600 dark:text-slate-400">Filter:</span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "active" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("active")}
+                >
+                  Active
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "paused" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("paused")}
+                >
+                  Paused
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "draft" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("draft")}
+                >
+                  Draft
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "completed" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("completed")}
+                >
+                  Completed
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Campaigns Grid */}
       {campaigns.length === 0 ? (
         <Card>
@@ -291,7 +487,7 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {campaigns.map((campaign) => (
+          {filteredCampaigns.map((campaign) => (
             <Card key={campaign.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -347,37 +543,65 @@ export function CampaignsPage({ accessToken, onViewDetail }: CampaignsPageProps)
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-4">
-                  {campaign.status === 'draft' ? (
-                    <Button className="flex-1" onClick={() => handleToggleCampaign(campaign.id, 'draft')}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Start Campaign
+                <div className="space-y-2 pt-4">
+                  <div className="flex gap-2">
+                    {campaign.status === 'draft' ? (
+                      <Button className="flex-1" onClick={() => handleToggleCampaign(campaign.id, 'draft')}>
+                        <Play className="h-4 w-4 mr-2" />
+                        Start
+                      </Button>
+                    ) : campaign.status === 'active' ? (
+                      <Button variant="outline" className="flex-1" onClick={() => handleToggleCampaign(campaign.id, campaign.status)}>
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </Button>
+                    ) : (
+                      <Button className="flex-1" onClick={() => handleToggleCampaign(campaign.id, campaign.status)}>
+                        <Play className="h-4 w-4 mr-2" />
+                        Resume
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => onViewDetail?.(campaign.id)}>
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Details
                     </Button>
-                  ) : campaign.status === 'active' ? (
-                    <Button variant="outline" className="flex-1" onClick={() => handleToggleCampaign(campaign.id, campaign.status)}>
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" size="sm">
+                      <Edit className="h-3 w-3 mr-2" />
+                      Edit
                     </Button>
-                  ) : (
-                    <Button className="flex-1" onClick={() => handleToggleCampaign(campaign.id, campaign.status)}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Resume
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDuplicateCampaign(campaign)}
+                    >
+                      <Copy className="h-3 w-3 mr-2" />
+                      Duplicate
                     </Button>
-                  )}
-                  <Button variant="outline">
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button variant="outline" onClick={() => onViewDetail?.(campaign.id)}>
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Details
-                  </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDeleteCampaign(campaign.id, campaign.name)}
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+      />
     </div>
   );
 }

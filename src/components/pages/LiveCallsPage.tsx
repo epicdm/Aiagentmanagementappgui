@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
@@ -21,7 +22,16 @@ import {
   Clock,
   Users,
   Activity,
-  Loader2
+  Loader2,
+  PhoneForwarded,
+  Pause,
+  Play,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Signal,
+  Zap,
+  Filter
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 
@@ -60,6 +70,10 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterSentiment, setFilterSentiment] = useState<string>('all');
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<string>("");
 
   useEffect(() => {
     loadLiveCalls();
@@ -172,6 +186,35 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
     toast.success(isMuted ? 'Unmuted' : 'Muted');
   };
 
+  const handleHoldCall = (call: LiveCall) => {
+    const newStatus = call.status === 'hold' ? 'talking' : 'hold';
+    setLiveCalls(liveCalls.map(c => 
+      c.id === call.id ? { ...c, status: newStatus as any } : c
+    ));
+    toast.success(newStatus === 'hold' ? 'Call placed on hold' : 'Call resumed');
+  };
+
+  const handleTransferCall = () => {
+    if (!transferTarget) {
+      toast.error("Please enter a transfer destination");
+      return;
+    }
+    toast.success(`Transferring call to ${transferTarget}...`);
+    setShowTransferDialog(false);
+    setTransferTarget("");
+    setTimeout(() => {
+      toast.success("Call transferred successfully!");
+    }, 2000);
+  };
+
+  const handleEndCall = (call: LiveCall) => {
+    setLiveCalls(liveCalls.filter(c => c.id !== call.id));
+    toast.success("Call ended");
+    if (selectedCall?.id === call.id) {
+      handleStopMonitoring();
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -195,6 +238,19 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
     }
   };
 
+  // Filter calls
+  const filteredCalls = liveCalls.filter(call => {
+    if (filterStatus !== 'all' && call.status !== filterStatus) return false;
+    if (filterSentiment !== 'all' && call.sentiment !== filterSentiment) return false;
+    return true;
+  });
+
+  // Calculate stats
+  const avgQuality = liveCalls.length > 0
+    ? (liveCalls.reduce((sum, c) => sum + c.qualityScore, 0) / liveCalls.length).toFixed(1)
+    : '0';
+  const totalDuration = liveCalls.reduce((sum, c) => sum + c.duration, 0);
+
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
@@ -215,67 +271,130 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <Phone className="h-5 w-5 text-blue-600 dark:text-blue-300" />
-              </div>
-              <div>
-                <div className="text-2xl">{liveCalls.length}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Active Calls</div>
-              </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Active Calls</CardTitle>
+              <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{liveCalls.length}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Live now
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                <Users className="h-5 w-5 text-green-600 dark:text-green-300" />
-              </div>
-              <div>
-                <div className="text-2xl">{liveCalls.filter(c => c.status === 'talking').length}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">In Conversation</div>
-              </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Talking</CardTitle>
+              <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{liveCalls.filter(c => c.status === 'talking').length}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              In conversation
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-300" />
-              </div>
-              <div>
-                <div className="text-2xl">{liveCalls.filter(c => c.status === 'ringing').length}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Ringing</div>
-              </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Avg Quality</CardTitle>
+              <Signal className="h-4 w-4 text-purple-600 dark:text-purple-400" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{avgQuality}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Out of 5.0
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                <Headphones className="h-5 w-5 text-purple-600 dark:text-purple-300" />
-              </div>
-              <div>
-                <div className="text-2xl">{isMonitoring ? 1 : 0}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Monitoring</div>
-              </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Total Duration</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{formatDuration(totalDuration)}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Combined time
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Monitoring</CardTitle>
+              <Headphones className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl mb-1">{isMonitoring ? 1 : 0}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Active sessions
+            </p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <div className="flex gap-2">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-1.5 border dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="talking">Talking</option>
+                <option value="ringing">Ringing</option>
+                <option value="hold">On Hold</option>
+              </select>
+
+              <select
+                value={filterSentiment}
+                onChange={(e) => setFilterSentiment(e.target.value)}
+                className="px-3 py-1.5 border dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-sm"
+              >
+                <option value="all">All Sentiment</option>
+                <option value="positive">Positive</option>
+                <option value="neutral">Neutral</option>
+                <option value="negative">Negative</option>
+              </select>
+            </div>
+            {(filterStatus !== 'all' || filterSentiment !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilterStatus('all');
+                  setFilterSentiment('all');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Active Calls List */}
       <div className="grid grid-cols-1 gap-4">
-        {liveCalls.length === 0 ? (
+        {filteredCalls.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Phone className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
@@ -286,7 +405,7 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
             </CardContent>
           </Card>
         ) : (
-          liveCalls.map((call) => (
+          filteredCalls.map((call) => (
             <Card key={call.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -348,7 +467,7 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
 
                   {/* Monitor Actions */}
                   <div className="flex flex-col gap-2 ml-4">
-                    {!isMonitoring && (
+                    {!isMonitoring ? (
                       <>
                         <Button
                           variant="outline"
@@ -377,12 +496,35 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
                           <MessageSquare className="h-4 w-4" />
                           Barge
                         </Button>
+                        <Separator className="my-1" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleHoldCall(call)}
+                          className="gap-2"
+                        >
+                          {call.status === 'hold' ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                          {call.status === 'hold' ? 'Resume' : 'Hold'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCall(call);
+                            setShowTransferDialog(true);
+                          }}
+                          className="gap-2"
+                        >
+                          <PhoneForwarded className="h-4 w-4" />
+                          Transfer
+                        </Button>
                       </>
-                    )}
-                    {isMonitoring && selectedCall?.id === call.id && (
-                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                        Monitoring
-                      </Badge>
+                    ) : (
+                      isMonitoring && selectedCall?.id === call.id && (
+                        <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                          Monitoring
+                        </Badge>
+                      )
                     )}
                   </div>
                 </div>
@@ -531,13 +673,56 @@ export function LiveCallsPage({ accessToken }: LiveCallsPageProps) {
                   <Eye className="h-4 w-4 mr-2" />
                   Stop Monitoring
                 </Button>
-                <Button variant="destructive">
+                <Button 
+                  variant="destructive"
+                  onClick={() => handleEndCall(selectedCall)}
+                >
                   <PhoneOff className="h-4 w-4 mr-2" />
                   End Call
                 </Button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Call</DialogTitle>
+            <DialogDescription>
+              Transfer {selectedCall?.customerName || selectedCall?.customerPhone} to another number or agent
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="transfer-target">Transfer To</Label>
+              <Input
+                id="transfer-target"
+                placeholder="Phone number or agent name..."
+                value={transferTarget}
+                onChange={(e) => setTransferTarget(e.target.value)}
+              />
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
+              <p className="text-slate-700 dark:text-slate-300">
+                The call will be transferred immediately. You can choose to stay on the line or disconnect after transfer.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTransferCall}>
+              <PhoneForwarded className="h-4 w-4 mr-2" />
+              Transfer Call
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

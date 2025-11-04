@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
@@ -345,50 +345,107 @@ export function CallDetailPage({ callId, accessToken, onBack }: CallDetailPagePr
             <div className="lg:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Recording</CardTitle>
+                  <CardTitle>Recording Player</CardTitle>
+                  <CardDescription>Full call audio with waveform visualization</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-slate-100 h-24 rounded-lg flex items-center justify-center relative overflow-hidden">
-                    {/* Waveform visualization placeholder */}
-                    <div className="absolute inset-0 flex items-center justify-center gap-1 px-4">
-                      {Array.from({ length: 100 }).map((_, i) => (
+                  {/* Enhanced Waveform Visualization */}
+                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 h-32 rounded-lg relative overflow-hidden border border-slate-200 dark:border-slate-700">
+                    {/* Waveform bars */}
+                    <div className="absolute inset-0 flex items-center justify-center gap-[2px] px-4">
+                      {Array.from({ length: 120 }).map((_, i) => (
                         <div
                           key={i}
-                          className="flex-1 bg-blue-400 rounded-full"
+                          className="flex-1 rounded-full transition-all duration-200"
                           style={{
-                            height: `${Math.random() * 60 + 20}%`,
-                            opacity: i < playbackPosition ? 1 : 0.3
+                            height: `${Math.random() * 70 + 10}%`,
+                            backgroundColor: i < playbackPosition ? '#3b82f6' : '#cbd5e1',
+                            opacity: i < playbackPosition ? 1 : 0.4
                           }}
                         />
                       ))}
                     </div>
-                    <div className="relative z-10 flex items-center gap-4">
-                      <Button 
-                        size="sm" 
-                        onClick={() => setIsPlaying(!isPlaying)}
-                        variant="secondary"
-                      >
-                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                      <span className="text-sm bg-white/90 px-2 py-1 rounded">{formatDuration(call.duration)}</span>
+                    
+                    {/* Playback overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-full p-4 shadow-lg">
+                        <Button 
+                          size="lg"
+                          onClick={() => {
+                            setIsPlaying(!isPlaying);
+                            if (!isPlaying) {
+                              // Simulate playback progress
+                              const interval = setInterval(() => {
+                                setPlaybackPosition(prev => {
+                                  if (prev >= 120) {
+                                    clearInterval(interval);
+                                    setIsPlaying(false);
+                                    return 0;
+                                  }
+                                  return prev + 1;
+                                });
+                              }, 50);
+                            }
+                          }}
+                          className="rounded-full h-14 w-14"
+                        >
+                          {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-1" />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={downloadRecording}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Recording
-                    </Button>
-                    <Select defaultValue="1">
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0.5">0.5x</SelectItem>
-                        <SelectItem value="1">1x</SelectItem>
-                        <SelectItem value="1.5">1.5x</SelectItem>
-                        <SelectItem value="2">2x</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  
+                  {/* Playback progress */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">
+                        {formatDuration(Math.floor((playbackPosition / 120) * call.duration))}
+                      </span>
+                      <span className="text-slate-600 dark:text-slate-400">
+                        {formatDuration(call.duration)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 cursor-pointer">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(playbackPosition / 120) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Playback controls */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={downloadRecording}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                      <Select defaultValue="1">
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0.5">0.5x</SelectItem>
+                          <SelectItem value="0.75">0.75x</SelectItem>
+                          <SelectItem value="1">1.0x</SelectItem>
+                          <SelectItem value="1.25">1.25x</SelectItem>
+                          <SelectItem value="1.5">1.5x</SelectItem>
+                          <SelectItem value="2">2.0x</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      MP3 • {((call.duration * 0.5) / 1024).toFixed(1)} MB
+                    </Badge>
+                  </div>
+                  
+                  {/* Audio quality indicator */}
+                  <div className="flex items-center justify-between text-sm p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-slate-700 dark:text-slate-300">High Quality Audio</span>
+                    </div>
+                    <span className="text-slate-600 dark:text-slate-400">48kHz • Stereo</span>
                   </div>
                 </CardContent>
               </Card>

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Bot, LayoutDashboard, MessageSquare, Phone, BarChart3, TestTube2, Users, Megaphone, Store, Palette, Key, Webhook, Settings, CreditCard, LogOut, Menu, Sun, Moon, Radio, ChevronDown, ChevronRight, Wallet, Shield } from "lucide-react";
+import { Bot, LayoutDashboard, MessageSquare, Phone, BarChart3, TestTube2, Users, Megaphone, Store, Palette, Key, Webhook, Settings, CreditCard, LogOut, Menu, Sun, Moon, Radio, ChevronDown, ChevronRight, Wallet, Shield, TrendingUp, Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { useState } from "react";
@@ -17,6 +17,8 @@ interface AppLayoutProps {
 
 const mainNavigation = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'funnels', name: 'Sales Funnels', icon: TrendingUp },
+  { id: 'social-media', name: 'Social Media', icon: Share2 },
   { id: 'agents', name: 'AI Agents', icon: Bot },
   { id: 'phone-numbers', name: 'Phone Numbers', icon: Phone },
   { id: 'live-calls', name: 'Live Calls', icon: Radio },
@@ -30,6 +32,7 @@ const mainNavigation = [
 
 const settingsNavigation = [
   { id: 'settings', name: 'General', icon: Settings },
+  { id: 'personas', name: 'Personas', icon: Users },
   { id: 'billing', name: 'Billing', icon: CreditCard },
   { id: 'api-keys', name: 'API Keys', icon: Key },
   { id: 'webhooks', name: 'Webhooks', icon: Webhook },

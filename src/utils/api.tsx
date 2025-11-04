@@ -230,6 +230,11 @@ export interface PhoneNumber {
   totalMinutes: number;
   totalCost: string;
   provisionedAt: string;
+  capabilities?: {
+    voice?: boolean;
+    sms?: boolean;
+    mms?: boolean;
+  };
 }
 
 export async function getPhoneNumbers(accessToken: string): Promise<PhoneNumber[]> {
@@ -305,4 +310,174 @@ export async function getAnalytics(accessToken: string): Promise<AnalyticsData> 
   }
 
   return data;
+}
+
+// Personas
+export interface Persona {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  instructions: string;
+  tone: string;
+  style: string;
+  personalityTraits: string[];
+  channels: string[];
+  tools: string[];
+  brandProfileId?: string | null;
+  isTemplate: boolean;
+  usageCount?: number;
+  createdAt: string;
+}
+
+export async function fetchPersonas(accessToken: string): Promise<{ personas: Persona[] }> {
+  const response = await fetch(`${API_BASE_URL}/personas`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Fetch personas error:', data.error);
+    throw new Error(data.error || 'Failed to fetch personas');
+  }
+
+  return data;
+}
+
+export async function createPersona(accessToken: string, personaData: Partial<Persona>): Promise<Persona> {
+  const response = await fetch(`${API_BASE_URL}/personas`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(personaData)
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Create persona error:', data.error);
+    throw new Error(data.error || 'Failed to create persona');
+  }
+
+  return data.persona;
+}
+
+export async function updatePersona(accessToken: string, personaId: string, updates: Partial<Persona>): Promise<Persona> {
+  const response = await fetch(`${API_BASE_URL}/personas/${personaId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(updates)
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Update persona error:', data.error);
+    throw new Error(data.error || 'Failed to update persona');
+  }
+
+  return data.persona;
+}
+
+export async function deletePersona(accessToken: string, personaId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/personas/${personaId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Delete persona error:', data.error);
+    throw new Error(data.error || 'Failed to delete persona');
+  }
+}
+
+// Brand Profile
+export interface BrandProfile {
+  companyName?: string;
+  industry?: string;
+  website?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    linkedin?: string;
+    twitter?: string;
+  };
+  extractedData?: any;
+  brandVoice?: string;
+  toneGuidelines?: string;
+  dos?: string[];
+  donts?: string[];
+  extractedAt?: string;
+}
+
+export async function getBrandProfile(accessToken: string): Promise<{ brandProfile: BrandProfile | null }> {
+  const response = await fetch(`${API_BASE_URL}/brand-profile`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Get brand profile error:', data.error);
+    throw new Error(data.error || 'Failed to fetch brand profile');
+  }
+
+  return data;
+}
+
+export async function updateBrandProfile(accessToken: string, profileData: Partial<BrandProfile>): Promise<BrandProfile> {
+  
+  const response = await fetch(`${API_BASE_URL}/brand-profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(profileData)
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Update brand profile error:', data.error);
+    throw new Error(data.error || 'Failed to update brand profile');
+  }
+
+  return data.brandProfile;
+}
+
+export async function extractBrandVoice(accessToken: string, urls: string[]): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/brand-profile/extract`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ urls })
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    console.error('Extract brand voice error:', data.error);
+    throw new Error(data.error || 'Failed to extract brand voice');
+  }
+
+  return data.extractedData;
 }
