@@ -53,12 +53,13 @@ type SocialCalendarState = { page: "social-calendar" };
 type SocialPostDetailState = { page: "social-post-detail"; postId: string };
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>("landing");
+  // Skip auth - go directly to app
+  const [appState, setAppState] = useState<AppState>("app");
   const [currentPage, setCurrentPage] = useState<PageState | AdminPageState | CallDetailState | CampaignDetailState | FunnelDetailState | SocialCalendarState | SocialPostDetailState>({"page": "dashboard"} as any);
-  const [user, setUser] = useState<any>(null);
-  const [accessToken, setAccessToken] = useState<string>("");
+  const [user, setUser] = useState<any>({ email: "guest@demo.com", id: "demo-user" });
+  const [accessToken, setAccessToken] = useState<string>("demo-token");
   const [isCreateAgentOpen, setIsCreateAgentOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // No loading needed
 
   const getCurrentPageId = () => {
     if (typeof currentPage === 'string') return currentPage;
@@ -73,27 +74,11 @@ export default function App() {
     return 'dashboard';
   };
 
-  // Check for existing session on mount
+  // No session check needed - public access
   useEffect(() => {
-    checkSession();
+    // App is ready immediately
+    console.log('App loaded - public access mode');
   }, []);
-
-  const checkSession = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.access_token && session?.user) {
-        setAccessToken(session.access_token);
-        setUser(session.user);
-        setAppState("app");
-      }
-    } catch (error) {
-      console.error('Error checking session:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleGetStarted = () => {
     setAppState("auth");
@@ -180,43 +165,7 @@ export default function App() {
     setCurrentPage("agents");
   };
 
-  // Show loading state while checking session
-  if (isLoading) {
-    return (
-      <ErrorBoundary>
-        <ThemeProvider>
-          <div className="flex items-center justify-center min-h-screen bg-slate-950">
-            <div className="text-center">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
-              <p className="mt-4 text-slate-400">Loading...</p>
-            </div>
-          </div>
-        </ThemeProvider>
-      </ErrorBoundary>
-    );
-  }
-
-  if (appState === "landing") {
-    return (
-      <ErrorBoundary>
-        <ThemeProvider>
-          <LandingPage onGetStarted={handleGetStarted} />
-          <Toaster />
-        </ThemeProvider>
-      </ErrorBoundary>
-    );
-  }
-
-  if (appState === "auth") {
-    return (
-      <ErrorBoundary>
-        <ThemeProvider>
-          <AuthPage onAuthSuccess={handleAuthSuccess} />
-          <Toaster />
-        </ThemeProvider>
-      </ErrorBoundary>
-    );
-  }
+  // No loading or auth pages - direct access to app
 
   // Admin panel rendering
   if (appState === "admin") {

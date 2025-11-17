@@ -7,6 +7,9 @@ import { generateMockCallLogs, generateDashboardStats, generateMockPhoneNumbers,
 
 const app = new Hono();
 
+// Public demo user - no authentication required
+const DEMO_USER = { id: 'demo-user', email: 'guest@demo.com' };
+
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -64,23 +67,11 @@ app.post("/make-server-9d2dee99/signup", async (c) => {
 
 // Get all agents for a user
 app.get("/make-server-9d2dee99/agents", async (c) => {
-  console.log('🤖 [BACKEND] GET /agents - Request received');
+  console.log('🤖 [BACKEND] GET /agents - Request received (PUBLIC ACCESS)');
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    console.log('🤖 [BACKEND] Access token:', accessToken ? 'Present' : 'MISSING');
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    console.log('🤖 [BACKEND] User ID:', user?.id || 'NONE');
-    
-    if (authError || !user) {
-      console.log(`🤖 [BACKEND] Authorization error: ${authError?.message}`);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
+    console.log('🤖 [BACKEND] Using demo user:', user.id);
 
     // Get all agents for this user
     console.log('🤖 [BACKEND] Fetching agents from KV with prefix:', `agent:${user.id}:`);
@@ -120,19 +111,8 @@ app.get("/make-server-9d2dee99/agents", async (c) => {
 // Create new agent
 app.post("/make-server-9d2dee99/agents", async (c) => {
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    
-    if (authError || !user) {
-      console.log(`Authorization error while creating agent: ${authError?.message}`);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
 
     const agentData = await c.req.json();
     
@@ -174,20 +154,9 @@ app.post("/make-server-9d2dee99/agents", async (c) => {
 // Update agent
 app.put("/make-server-9d2dee99/agents/:id", async (c) => {
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
     const agentId = c.req.param('id');
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    
-    if (authError || !user) {
-      console.log(`Authorization error while updating agent: ${authError?.message}`);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
 
     // Get existing agent
     const existingAgent = await kv.get(`agent:${user.id}:${agentId}`);
