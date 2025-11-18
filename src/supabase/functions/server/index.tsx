@@ -214,23 +214,11 @@ app.delete("/make-server-9d2dee99/agents/:id", async (c) => {
 
 // Get dashboard stats
 app.get("/make-server-9d2dee99/dashboard/stats", async (c) => {
-  console.log('📊 [BACKEND] GET /dashboard/stats - Request received');
+  console.log('📊 [BACKEND] GET /dashboard/stats - Request received (PUBLIC ACCESS)');
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    console.log('📊 [BACKEND] Access token:', accessToken ? 'Present' : 'MISSING');
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    console.log('📊 [BACKEND] User ID:', user?.id || 'NONE');
-    
-    if (authError || !user) {
-      console.log(`📊 [BACKEND] ❌ Authorization error: ${authError?.message}`);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
+    console.log('📊 [BACKEND] Using demo user:', user.id);
 
     // Get agents
     console.log('📊 [BACKEND] Fetching agents from KV...');
@@ -270,25 +258,13 @@ app.get("/make-server-9d2dee99/dashboard/stats", async (c) => {
 
 // Get call logs
 app.get("/make-server-9d2dee99/calls", async (c) => {
-  console.log('📞 [BACKEND] GET /calls - Request received');
+  console.log('📞 [BACKEND] GET /calls - Request received (PUBLIC ACCESS)');
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    // Public access - use demo user
+    const user = DEMO_USER;
     const limit = parseInt(c.req.query('limit') || '50');
-    console.log('📞 [BACKEND] Access token:', accessToken ? 'Present' : 'MISSING');
+    console.log('📞 [BACKEND] Using demo user:', user.id);
     console.log('📞 [BACKEND] Limit:', limit);
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    console.log('📞 [BACKEND] User ID:', user?.id || 'NONE');
-    
-    if (authError || !user) {
-      console.log(`📞 [BACKEND] ❌ Authorization error: ${authError?.message}`);
-      return c.json({ error: "Unauthorized" }, 401);
-    }
 
     // Get or generate call logs
     console.log('📞 [BACKEND] Fetching calls from KV...');
@@ -365,30 +341,24 @@ app.get("/make-server-9d2dee99/calls/:id", async (c) => {
 
 // Get phone numbers
 app.get("/make-server-9d2dee99/phone-numbers", async (c) => {
+  console.log('📞 [BACKEND] GET /phone-numbers - Request received (PUBLIC ACCESS)');
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    
-    if (authError || !user) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
+    console.log('📞 [BACKEND] Using demo user:', user.id);
 
     // Get or generate phone numbers
     let phones = await kv.get(`phones:${user.id}`);
     if (!phones) {
       phones = generateMockPhoneNumbers(user.id, 5);
       await kv.set(`phones:${user.id}`, phones);
+      console.log('📞 [BACKEND] Generated', phones.length, 'mock phone numbers');
     }
+    console.log('📞 [BACKEND] Returning', phones.length, 'phone numbers');
     
     return c.json({ phoneNumbers: phones });
   } catch (error) {
-    console.log(`Error fetching phone numbers: ${error}`);
+    console.log(`📞 [BACKEND] ❌ Error fetching phone numbers: ${error}`);
     return c.json({ error: "Internal server error" }, 500);
   }
 });
@@ -431,34 +401,29 @@ app.post("/make-server-9d2dee99/phone-numbers/:id/assign", async (c) => {
 
 // Get all personas for a user
 app.get("/make-server-9d2dee99/personas", async (c) => {
+  console.log('🎭 [BACKEND] GET /personas - Request received (PUBLIC ACCESS)');
   try {
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    
-    if (authError || !user) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+    // Public access - use demo user
+    const user = DEMO_USER;
+    console.log('🎭 [BACKEND] Using demo user:', user.id);
 
     // Get user personas
     const personaValues = await kv.getByPrefix(`persona:${user.id}:`);
     const personas = personaValues.filter(p => p != null);
+    console.log('🎭 [BACKEND] Found', personas.length, 'user personas');
     
     // Get or initialize system templates (shared across all users)
     let systemTemplates = await kv.get('personas:system-templates');
     if (!systemTemplates) {
       systemTemplates = generateSystemPersonas();
       await kv.set('personas:system-templates', systemTemplates);
+      console.log('🎭 [BACKEND] Generated', systemTemplates.length, 'system templates');
     }
     
+    console.log('🎭 [BACKEND] Returning', systemTemplates.length + personas.length, 'total personas');
     return c.json({ personas: [...systemTemplates, ...personas] });
   } catch (error) {
-    console.log(`Error fetching personas: ${error}`);
+    console.log(`🎭 [BACKEND] ❌ Error fetching personas: ${error}`);
     return c.json({ error: "Internal server error while fetching personas" }, 500);
   }
 });

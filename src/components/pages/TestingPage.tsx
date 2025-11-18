@@ -59,6 +59,7 @@ export function TestingPage({ accessToken }: TestingPageProps) {
       setAgents(validAgents);
     } catch (error) {
       console.error('Error loading agents:', error);
+      // Fallback works - only show error if it completely fails
       toast.error("Failed to load agents");
     }
   };

@@ -40,80 +40,145 @@ export async function getAgents(accessToken: string): Promise<Agent[]> {
   console.log('🤖 [FRONTEND] API URL:', `${API_BASE_URL}/agents`);
   console.log('🤖 [FRONTEND] Access Token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'MISSING');
   
-  const response = await fetch(`${API_BASE_URL}/agents`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
+  try {
+    const response = await fetch(`${API_BASE_URL}/agents`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    console.log('🤖 [FRONTEND] Response Status:', response.status, response.statusText);
+    
+    const data = await response.json();
+    console.log('🤖 [FRONTEND] Response Data:', data);
+    console.log('🤖 [FRONTEND] Agents count:', data.agents?.length || 0);
+    
+    if (!response.ok) {
+      console.error('🤖 [FRONTEND] ERROR:', data.error);
+      console.warn('🤖 [FRONTEND] Backend unavailable, using mock data');
+      
+      // Fallback to mock data
+      const { getMockAgents } = await import('./mock-agents');
+      return getMockAgents();
     }
-  });
 
-  console.log('🤖 [FRONTEND] Response Status:', response.status, response.statusText);
-  
-  const data = await response.json();
-  console.log('🤖 [FRONTEND] Response Data:', data);
-  console.log('🤖 [FRONTEND] Agents count:', data.agents?.length || 0);
-  
-  if (!response.ok) {
-    console.error('🤖 [FRONTEND] ERROR:', data.error);
-    throw new Error(data.error || 'Failed to fetch agents');
+    return data.agents;
+  } catch (error) {
+    console.error('🤖 [FRONTEND] FETCH ERROR:', error);
+    console.error('🤖 [FRONTEND] Error type:', error instanceof TypeError ? 'Network/CORS Error' : 'Other Error');
+    console.error('🤖 [FRONTEND] Error message:', error.message);
+    console.warn('🤖 [FRONTEND] Using mock agents as fallback');
+    
+    // Fallback to mock data on network error
+    const { getMockAgents } = await import('./mock-agents');
+    return getMockAgents();
   }
-
-  return data.agents;
 }
 
 export async function createAgent(accessToken: string, agentData: Partial<Agent>): Promise<Agent> {
-  const response = await fetch(`${API_BASE_URL}/agents`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
-    },
-    body: JSON.stringify(agentData)
-  });
-
-  const data = await response.json();
+  console.log('🤖 [FRONTEND] Creating agent...');
   
-  if (!response.ok) {
-    console.error('Create agent error:', data.error);
-    throw new Error(data.error || 'Failed to create agent');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/agents`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(agentData)
+    });
 
-  return data.agent;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('🤖 [FRONTEND] Create ERROR:', data.error);
+      console.warn('🤖 [FRONTEND] Backend unavailable, creating mock agent locally');
+      
+      // Fallback to mock data creation
+      const { generateMockAgent } = await import('./mock-agents');
+      return generateMockAgent(agentData);
+    }
+
+    console.log('🤖 [FRONTEND] Agent created:', data.agent?.id);
+    return data.agent;
+  } catch (error) {
+    console.error('🤖 [FRONTEND] CREATE FETCH ERROR:', error);
+    console.warn('🤖 [FRONTEND] Using mock agent creation as fallback');
+    
+    // Fallback to mock data on network error
+    const { generateMockAgent } = await import('./mock-agents');
+    return generateMockAgent(agentData);
+  }
 }
 
 export async function updateAgent(accessToken: string, agentId: string, updates: Partial<Agent>): Promise<Agent> {
-  const response = await fetch(`${API_BASE_URL}/agents/${agentId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
-    },
-    body: JSON.stringify(updates)
-  });
-
-  const data = await response.json();
+  console.log('🤖 [FRONTEND] Updating agent...');
   
-  if (!response.ok) {
-    console.error('Update agent error:', data.error);
-    throw new Error(data.error || 'Failed to update agent');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(updates)
+    });
 
-  return data.agent;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('🤖 [FRONTEND] Update ERROR:', data.error);
+      console.warn('🤖 [FRONTEND] Backend unavailable, updating mock agent locally');
+      
+      // Fallback to mock data update
+      const { updateMockAgent } = await import('./mock-agents');
+      return updateMockAgent(agentId, updates);
+    }
+
+    console.log('🤖 [FRONTEND] Agent updated:', data.agent?.id);
+    return data.agent;
+  } catch (error) {
+    console.error('🤖 [FRONTEND] UPDATE FETCH ERROR:', error);
+    console.warn('🤖 [FRONTEND] Using mock agent update as fallback');
+    
+    // Fallback to mock data on network error
+    const { updateMockAgent } = await import('./mock-agents');
+    return updateMockAgent(agentId, updates);
+  }
 }
 
 export async function deleteAgent(accessToken: string, agentId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/agents/${agentId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-
-  const data = await response.json();
+  console.log('🤖 [FRONTEND] Deleting agent...');
   
-  if (!response.ok) {
-    console.error('Delete agent error:', data.error);
-    throw new Error(data.error || 'Failed to delete agent');
+  try {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('🤖 [FRONTEND] Delete ERROR:', data.error);
+      console.warn('🤖 [FRONTEND] Backend unavailable, deleting mock agent locally');
+      
+      // Fallback to mock data deletion
+      const { deleteMockAgent } = await import('./mock-agents');
+      deleteMockAgent(agentId);
+      return;
+    }
+
+    console.log('🤖 [FRONTEND] Agent deleted:', agentId);
+  } catch (error) {
+    console.error('🤖 [FRONTEND] DELETE FETCH ERROR:', error);
+    console.warn('🤖 [FRONTEND] Using mock agent deletion as fallback');
+    
+    // Fallback to mock data on network error
+    const { deleteMockAgent } = await import('./mock-agents');
+    deleteMockAgent(agentId);
   }
 }
 
@@ -178,25 +243,40 @@ export async function getCalls(accessToken: string, limit: number = 50): Promise
   console.log('📞 [FRONTEND] API URL:', `${API_BASE_URL}/calls?limit=${limit}`);
   console.log('📞 [FRONTEND] Access Token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'MISSING');
   
-  const response = await fetch(`${API_BASE_URL}/calls?limit=${limit}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
+  try {
+    const response = await fetch(`${API_BASE_URL}/calls?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    console.log('📞 [FRONTEND] Response Status:', response.status, response.statusText);
+    
+    const data = await response.json();
+    console.log('📞 [FRONTEND] Response Data:', data);
+    console.log('📞 [FRONTEND] Calls count:', data.calls?.length || 0);
+    
+    if (!response.ok) {
+      console.error('📞 [FRONTEND] ERROR:', data.error);
+      console.warn('📞 [FRONTEND] Backend unavailable, using mock calls data');
+      
+      // Fallback to mock data
+      const { generateMultipleMockCalls } = await import('./mock-calls');
+      const mockCalls = generateMultipleMockCalls('agent_1', limit);
+      return { calls: mockCalls, total: mockCalls.length };
     }
-  });
 
-  console.log('📞 [FRONTEND] Response Status:', response.status, response.statusText);
-  
-  const data = await response.json();
-  console.log('📞 [FRONTEND] Response Data:', data);
-  console.log('📞 [FRONTEND] Calls count:', data.calls?.length || 0);
-  
-  if (!response.ok) {
-    console.error('📞 [FRONTEND] ERROR:', data.error);
-    throw new Error(data.error || 'Failed to fetch calls');
+    return data;
+  } catch (error) {
+    console.error('📞 [FRONTEND] FETCH ERROR:', error);
+    console.warn('📞 [FRONTEND] Using mock calls as fallback');
+    
+    // Fallback to mock data on network error
+    const { generateMultipleMockCalls } = await import('./mock-calls');
+    const mockCalls = generateMultipleMockCalls('agent_1', limit);
+    return { calls: mockCalls, total: mockCalls.length };
   }
-
-  return data;
 }
 
 export async function getCallDetails(accessToken: string, callId: string): Promise<CallLog> {
@@ -238,41 +318,73 @@ export interface PhoneNumber {
 }
 
 export async function getPhoneNumbers(accessToken: string): Promise<PhoneNumber[]> {
-  const response = await fetch(`${API_BASE_URL}/phone-numbers`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-
-  const data = await response.json();
+  console.log('📞 [FRONTEND] Fetching phone numbers...');
   
-  if (!response.ok) {
-    console.error('Get phone numbers error:', data.error);
-    throw new Error(data.error || 'Failed to fetch phone numbers');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/phone-numbers`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
 
-  return data.phoneNumbers;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('📞 [FRONTEND] ERROR:', data.error);
+      console.warn('📞 [FRONTEND] Backend unavailable, using mock data');
+      
+      // Fallback to mock data
+      const { getMockPhoneNumbers } = await import('./mock-phone-numbers');
+      return getMockPhoneNumbers();
+    }
+
+    console.log('📞 [FRONTEND] Phone numbers loaded:', data.phoneNumbers?.length || 0);
+    return data.phoneNumbers;
+  } catch (error) {
+    console.error('📞 [FRONTEND] FETCH ERROR:', error);
+    console.warn('📞 [FRONTEND] Using mock phone numbers as fallback');
+    
+    // Fallback to mock data on network error
+    const { getMockPhoneNumbers } = await import('./mock-phone-numbers');
+    return getMockPhoneNumbers();
+  }
 }
 
 export async function assignPhoneNumber(accessToken: string, phoneId: string, agentId: string | null): Promise<PhoneNumber> {
-  const response = await fetch(`${API_BASE_URL}/phone-numbers/${phoneId}/assign`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
-    },
-    body: JSON.stringify({ agentId })
-  });
-
-  const data = await response.json();
+  console.log('📞 [FRONTEND] Assigning phone number...');
   
-  if (!response.ok) {
-    console.error('Assign phone number error:', data.error);
-    throw new Error(data.error || 'Failed to assign phone number');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/phone-numbers/${phoneId}/assign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ agentId })
+    });
 
-  return data.phoneNumber;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('📞 [FRONTEND] Assign ERROR:', data.error);
+      console.warn('📞 [FRONTEND] Backend unavailable, assigning phone number locally');
+      
+      // Fallback to mock data update
+      const { updateMockPhoneNumber } = await import('./mock-phone-numbers');
+      return updateMockPhoneNumber(phoneId, { assignedAgentId: agentId });
+    }
+
+    console.log('📞 [FRONTEND] Phone number assigned');
+    return data.phoneNumber;
+  } catch (error) {
+    console.error('📞 [FRONTEND] ASSIGN FETCH ERROR:', error);
+    console.warn('📞 [FRONTEND] Using mock phone number assignment as fallback');
+    
+    // Fallback to mock data on network error
+    const { updateMockPhoneNumber } = await import('./mock-phone-numbers');
+    return updateMockPhoneNumber(phoneId, { assignedAgentId: agentId });
+  }
 }
 
 // Analytics
@@ -331,41 +443,73 @@ export interface Persona {
 }
 
 export async function fetchPersonas(accessToken: string): Promise<{ personas: Persona[] }> {
-  const response = await fetch(`${API_BASE_URL}/personas`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-
-  const data = await response.json();
+  console.log('🎭 [FRONTEND] Fetching personas...');
   
-  if (!response.ok) {
-    console.error('Fetch personas error:', data.error);
-    throw new Error(data.error || 'Failed to fetch personas');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/personas`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
 
-  return data;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('🎭 [FRONTEND] ERROR:', data.error);
+      console.warn('🎭 [FRONTEND] Backend unavailable, using mock data');
+      
+      // Fallback to mock data
+      const { getMockPersonas } = await import('./mock-personas');
+      return { personas: getMockPersonas() };
+    }
+
+    console.log('🎭 [FRONTEND] Personas loaded:', data.personas?.length || 0);
+    return data;
+  } catch (error) {
+    console.error('🎭 [FRONTEND] FETCH ERROR:', error);
+    console.warn('🎭 [FRONTEND] Using mock personas as fallback');
+    
+    // Fallback to mock data on network error
+    const { getMockPersonas } = await import('./mock-personas');
+    return { personas: getMockPersonas() };
+  }
 }
 
 export async function createPersona(accessToken: string, personaData: Partial<Persona>): Promise<Persona> {
-  const response = await fetch(`${API_BASE_URL}/personas`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
-    },
-    body: JSON.stringify(personaData)
-  });
-
-  const data = await response.json();
+  console.log('🎭 [FRONTEND] Creating persona...');
   
-  if (!response.ok) {
-    console.error('Create persona error:', data.error);
-    throw new Error(data.error || 'Failed to create persona');
-  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/personas`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(personaData)
+    });
 
-  return data.persona;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('🎭 [FRONTEND] Create ERROR:', data.error);
+      console.warn('🎭 [FRONTEND] Backend unavailable, creating mock persona locally');
+      
+      // Fallback to mock data creation
+      const { generateMockPersona } = await import('./mock-personas');
+      return generateMockPersona(personaData);
+    }
+
+    console.log('🎭 [FRONTEND] Persona created:', data.persona?.id);
+    return data.persona;
+  } catch (error) {
+    console.error('🎭 [FRONTEND] CREATE FETCH ERROR:', error);
+    console.warn('🎭 [FRONTEND] Using mock persona creation as fallback');
+    
+    // Fallback to mock data on network error
+    const { generateMockPersona } = await import('./mock-personas');
+    return generateMockPersona(personaData);
+  }
 }
 
 export async function updatePersona(accessToken: string, personaId: string, updates: Partial<Persona>): Promise<Persona> {

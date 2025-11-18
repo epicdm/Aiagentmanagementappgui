@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -20,9 +20,10 @@ import {
   Zap, 
   FileText,
   Save,
-  X
+  X,
+  User
 } from "lucide-react";
-import { Agent, updateAgent } from "../utils/api";
+import { Agent, updateAgent, fetchPersonas, Persona } from "../utils/api";
 import { toast } from "sonner@2.0.3";
 
 interface EditAgentDialogProps {
@@ -38,6 +39,7 @@ interface LiveKitAgentConfig {
   name: string;
   type: 'voice' | 'chat';
   status: 'active' | 'inactive';
+  personaId?: string;
   
   // LLM Settings
   llmProvider: string;
@@ -94,6 +96,7 @@ export function EditAgentDialog({
     name: agent.name || "",
     type: agent.type || "voice",
     status: agent.status || "active",
+    personaId: agent.personaId || undefined,
     
     llmProvider: "openai",
     llmModel: agent.model || "gpt-4",
@@ -128,6 +131,22 @@ export function EditAgentDialog({
     knowledgeBase: ""
   });
 
+  const [personas, setPersonas] = useState<Persona[]>([]);
+
+  useEffect(() => {
+    const fetchAndSetPersonas = async () => {
+      try {
+        const fetchedPersonas = await fetchPersonas(accessToken);
+        setPersonas(fetchedPersonas.personas || []);
+      } catch (error) {
+        console.error('Error fetching personas:', error);
+        toast.error("Failed to fetch personas");
+      }
+    };
+
+    fetchAndSetPersonas();
+  }, [accessToken]);
+
   const handleSave = async () => {
     if (!config.name.trim()) {
       toast.error("Agent name is required");
@@ -143,7 +162,8 @@ export function EditAgentDialog({
         model: config.llmModel,
         voice: config.ttsVoice,
         language: config.sttLanguage,
-        systemPrompt: config.systemPrompt
+        systemPrompt: config.systemPrompt,
+        personaId: config.personaId
       });
       
       onAgentUpdated(updatedAgent);
@@ -254,6 +274,25 @@ export function EditAgentDialog({
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="personaId">Persona</Label>
+                    <Select
+                      value={config.personaId || "none"}
+                      onValueChange={(value) => setConfig({ ...config, personaId: value === "none" ? undefined : value })}
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {personas.map(persona => (
+                          <SelectItem key={persona.id} value={persona.id}>{persona.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>

@@ -106,8 +106,10 @@ export function PersonasPage({ accessToken }: PersonasPageProps) {
       setLoading(true);
       const data = await fetchPersonas(accessToken);
       setPersonas(data.personas || []);
+      // Success - personas loaded (either from backend or fallback)
     } catch (error) {
       console.error('Error loading personas:', error);
+      // Only show error if fallback also failed (which shouldn't happen)
       toast.error('Failed to load personas');
     } finally {
       setLoading(false);

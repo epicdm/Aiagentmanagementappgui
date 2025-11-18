@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { CreateSocialPostWizard } from '../CreateSocialPostWizard';
 import { SocialTemplatesModal } from '../SocialTemplatesModal';
 import { BulkSchedulerModal } from '../BulkSchedulerModal';
+import { AnalyzeVoiceModal } from '../AnalyzeVoiceModal';
 
 interface SocialMediaPageProps {
   accessToken: string;
@@ -25,6 +26,8 @@ export function SocialMediaPage({ accessToken, onNavigate, onViewCalendar, onVie
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [showBulkScheduler, setShowBulkScheduler] = useState(false);
+  const [showAnalyzeVoice, setShowAnalyzeVoice] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -125,10 +128,11 @@ export function SocialMediaPage({ accessToken, onNavigate, onViewCalendar, onVie
   };
 
   const handleAnalyzeVoice = (accountId: string) => {
-    toast.success('Analyzing brand voice from your posts...');
-    setTimeout(() => {
-      toast.success('Brand voice analysis complete!');
-    }, 2000);
+    const account = connectedAccounts.find((acc) => acc.id === accountId);
+    if (account) {
+      setSelectedAccount(account);
+      setShowAnalyzeVoice(true);
+    }
   };
 
   if (loading) {
@@ -501,6 +505,15 @@ export function SocialMediaPage({ accessToken, onNavigate, onViewCalendar, onVie
         connectedAccounts={connectedAccounts}
         accessToken={accessToken}
         initialTemplate={selectedTemplate}
+      />
+
+      {/* Analyze Voice Modal */}
+      <AnalyzeVoiceModal
+        isOpen={showAnalyzeVoice}
+        onClose={() => setShowAnalyzeVoice(false)}
+        accountId={selectedAccount?.id || ''}
+        accountName={selectedAccount?.accountName || ''}
+        platform={selectedAccount?.platform || ''}
       />
     </div>
   );

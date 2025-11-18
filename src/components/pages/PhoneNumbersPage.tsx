@@ -50,6 +50,7 @@ export function PhoneNumbersPage({ accessToken }: PhoneNumbersPageProps) {
       setAgents(validAgents);
     } catch (error) {
       console.error('Error loading data:', error);
+      // Fallback works - only show error if it completely fails
       toast.error("Failed to load phone numbers");
     } finally {
       setIsLoading(false);
